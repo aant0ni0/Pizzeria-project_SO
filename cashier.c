@@ -33,4 +33,26 @@ int main(){
     int x4 = atoi(argv[4]);
 
 
+    //ustawienie obslugi sygnalu
+    struct sigaction sa;
+    sa.sa_handler() = fire_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(FIRE_SINGAL, &sa, NULL);
+
+    
+    key_t key = ftok(PROJECT_PATH, PROJECT_ID);
+    if(key == -1){
+        perror("Błąd: Nie udało się utworzyć klucza IPC za pomocą ftok");
+        exit(EXIT_FAILURE);
+    }
+
+
+    int msgid = create_msg_queue(key);
+
+    int shmid = create_shared_memory(key);
+    TablesState* tables = attach_shared_memory(shmid);
+
+    int semid = create_semaphore(key);
+
 }
