@@ -4,7 +4,7 @@
 
 int main(int argc, char* argv[]){
     if(argc < 3){
-        fprintf(stderr, "Użycie: %s <rozmiar_grupy> <czas_jedzenia_s>\n", argv[0]);
+        fprintf(stderr, "Poprawne użycie: %s <liczba_osób_w_grupie> <czas_jedzenia_w_sekundach>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
