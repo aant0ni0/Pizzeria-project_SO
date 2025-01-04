@@ -1,7 +1,7 @@
 #include "ipc_helpers.h"
 
 
-int create_msg_queue(key_t){
+int create_msg_queue(key_t key){
     int msgid = msgget(key, IPC_CREAT | 0666);
     if (msgid == -1) {
         perror("Błąd: Nie udało się utworzyć kolejki komunikatów za pomocą msgget. Upewnij się, że używany klucz IPC jest poprawny i że proces ma wystarczające uprawnienia do tworzenia zasobów IPC.");
@@ -32,7 +32,7 @@ int get_msg_queue(key_t key){
 int create_semaphore(key_t key){
     int semid = semget(key, 1, IPC_CREAT | 0666);
     if(semid ==-1){
-        perror("Błąd: Nie udało się utworzyć semafora za pomocą semget. Upewnij się, że używany klucz IPC jest poprawny oraz że system ma wystarczającą liczbę dostępnych zasobów IPC.")
+        perror("Błąd: Nie udało się utworzyć semafora za pomocą semget. Upewnij się, że używany klucz IPC jest poprawny oraz że system ma wystarczającą liczbę dostępnych zasobów IPC.");
         exit(EXIT_FAILURE);
     }
     
@@ -60,7 +60,7 @@ void remove_semaphore(int semid){
 }
 
 
-void sempahore_down(int semid){
+void semaphore_down(int semid){
     struct sembuf op;
     op.sem_num = 0;
     op.sem_op = -1;
@@ -73,7 +73,7 @@ void sempahore_down(int semid){
 }
 
 
-void sempahore_up(int semid){
+void semaphore_up(int semid){
     struct sembuf op;
     op.sem_num = 0;
     op.sem_op = 1;

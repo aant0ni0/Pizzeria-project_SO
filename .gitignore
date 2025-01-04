@@ -1,0 +1,7 @@
+# Ignore all object files
+*.o
+
+# Ignore executable files
+cashier
+client
+firefighter

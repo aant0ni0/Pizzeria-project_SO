@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -pedantic -std=c11
+CFLAGS = -Wall -pedantic -std=c11 -D_POSIX_C_SOURCE=200809L
 
 OBJS = cashier.o client.o firefighter.o ipc_helpers.o sharedmem_helpers.o
 

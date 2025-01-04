@@ -14,3 +14,6 @@ void remove_semaphore(int semid);
 
 void semaphore_down(int semid);
 void semaphore_up(int semid);
+
+
+#endif

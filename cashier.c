@@ -1,10 +1,15 @@
 #include "common.h"
 #include <ctype.h>
+#include "ipc_helpers.h"
+#include "sharedmem_helpers.h"
+#include <ctype.h>     
+#include <unistd.h>   
 
-static volatile sig_atomic_t fireHappened 0;
+
+static volatile sig_atomic_t fireHappened = 0;
 
 void fire_handler(int signo){
-    if(signo == FIRE_SINGAL){
+    if(signo == FIRE_SIGNAL){
         fireHappened = 1;
     }
 }
@@ -59,7 +64,7 @@ int check_and_seat_group(TablesState* state, int groupSize) {
     return 0; 
 }
 
-int main(){
+int main(int argc, char* argv[]){
     if(argc < 5){
         fprintf(stderr, "Wprowadź dane w formacie: %s X1 X2 X3 X4\n", argv[0]);
         exit(EXIT_FAILURE);
@@ -82,10 +87,10 @@ int main(){
 
 
     struct sigaction sa;
-    sa.sa_handler() = fire_handler;
+    sa.sa_handler = fire_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
-    sigaction(FIRE_SINGAL, &sa, NULL);
+    sigaction(FIRE_SIGNAL, &sa, NULL);
 
     
     key_t key = ftok(PROJECT_PATH, PROJECT_ID);
@@ -103,12 +108,12 @@ int main(){
     int semid = create_semaphore(key);
 
 
-    sempahore_down(semid);
+    semaphore_down(semid);
     tables->free_1_person_tables = x1;
     tables->free_2_person_tables = x2;
     tables->free_3_person_tables = x3;
     tables->free_4_person_tables = x4;
-    sempahore_up(semid);
+    semaphore_up(semid);
 
     printf("[KASJER] Start pizzerii: stoliki 1-os:%d 2-os:%d 3-os:%d 4-os:%d\n",
            x1, x2, x3, x4);
@@ -132,9 +137,9 @@ int main(){
         resp.canSit = false;
         resp.tableSize = 0;
 
-        sempahore_down(semid);
+        semaphore_down(semid);
         int tableAssigned = check_and_seat_group(tables, req.groupSize);
-        sempahore_up(semid);
+        semaphore_up(semid);
 
         if(tableAssigned > 0){
             resp.canSit = true;
