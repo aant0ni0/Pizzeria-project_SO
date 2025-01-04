@@ -25,6 +25,9 @@ typedef struct {
     int free_2_person_tables;
     int free_3_person_tables;
     int free_4_person_tables;
+
+    int half_occupied_2_person_tables; // Liczba stolików 2-osobowych z jednym wolnym miejscem
+    int half_occupied_4_person_tables;  // Liczba stolików 4-osobowych z dwoma wolnymi miejscami
 } TablesState;
 
 

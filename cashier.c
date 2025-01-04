@@ -9,7 +9,55 @@ void fire_handler(int signo){
     }
 }
 
+int check_and_seat_group(TablesState* state, int groupSize) {
+    switch (groupSize) {
+        case 1:
+            if (state->free_1_person_tables > 0) {
+                state->free_1_person_tables--;
+                return 1;
+            } else if (state->half_occupied_2_person_tables > 0) {
+                state->half_occupied_2_person_tables--;
+                return 2;
+            } else if (state->free_2_person_tables > 0) {
+                state->free_2_person_tables--;
+                state->half_occupied_2_person_tables++; 
+                return 2;
+            } else if (state->free_4_person_tables > 0) {
+                state->free_4_person_tables--;
+                state->half_occupied_4_person_tables++;
+                return 4;
+            }
+            break;
 
+        case 2:
+            if (state->free_2_person_tables > 0) {
+                state->free_2_person_tables--;
+                return 2;
+            } else if (state->half_occupied_4_person_tables > 0) {
+                state->half_occupied_4_person_tables--;
+                return 4;
+            } else if (state->free_4_person_tables > 0) {
+                state->free_4_person_tables--;
+                state->half_occupied_4_person_tables++;
+                return 4;
+            }
+            break;
+
+        case 3:
+            if (state->free_3_person_tables > 0) {
+                state->free_3_person_tables--;
+                return 3;
+            } else if (state->free_4_person_tables > 0) {
+                state->free_4_person_tables--;
+                return 4;
+            }
+            break;
+
+        default:
+            return 0;
+    }
+    return 0; 
+}
 
 int main(){
     if(argc < 5){
@@ -54,5 +102,52 @@ int main(){
     TablesState* tables = attach_shared_memory(shmid);
 
     int semid = create_semaphore(key);
+
+
+    sempahore_down(semid);
+    tables->free_1_person_tables = x1;
+    tables->free_2_person_tables = x2;
+    tables->free_3_person_tables = x3;
+    tables->free_4_person_tables = x4;
+    sempahore_up(semid);
+
+    printf("[KASJER] Start pizzerii: stoliki 1-os:%d 2-os:%d 3-os:%d 4-os:%d\n",
+           x1, x2, x3, x4);
+    
+
+    while (!fireHappened) {
+        struct msgbuf_request req;
+        ssize_t ret = msgrcv(msgid, &req, sizeof(req) - sizeof(long), 1, IPC_NOWAIT);
+        if (ret == -1) {
+            if (errno == ENOMSG) {
+                usleep(100000);
+                continue;
+            } else {
+                perror("msgrcv");
+                break;
+            }
+        }
+
+        struct msgbuf_response resp;
+        resp.mtype = 2; 
+        resp.canSit = false;
+        resp.tableSize = 0;
+
+        sempahore_down(semid);
+        int tableAssigned = check_and_seat_group(tables, req.groupSize);
+        sempahore_up(semid);
+
+        if(tableAssigned > 0){
+            resp.canSit = true;
+            resp.tableSize = tableAssigned;
+        }
+
+        if (msgsnd(msgid, &resp, sizeof(resp) - sizeof(long), 0) == -1) {
+            perror("Błąd: Nie udało się wysłać odpowiedzi do klienta za pomocą msgsnd. Upewnij się, że kolejka komunikatów istnieje, nie jest pełna oraz że proces ma wystarczające uprawnienia do zapisu.");
+        }
+
+    }
+
+    printf("[KASJER] Pożar lub koniec pracy. Zamykam pizzerię.\n");
 
 }
