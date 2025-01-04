@@ -14,5 +14,24 @@ int main(int argc, char* argv[]){
     if (groupSize < 1 || groupSize > MAX_GROUP_SIZE) {
         fprintf(stderr, "[KLIENT] Niepoprawny rozmiar grupy\n");
         exit(EXIT_FAILURE);
-    }   
+    }
+
+    key_t key = ftok(PROJECT_PATH, PROJECT_ID);
+    if(key == -1){
+        perror("ftok");
+        exit(EXIT_FAILURE);
+    }
+
+    int msgid = get_msg_queue(key);
+
+    struct msgbuf_request req;
+    req.mtype = 1;
+    req.groupSize = groupSize;
+    req.pidClient = getpid();
+
+    if(msgsnd(msgid, &req, sizeof(req) - sizeof(long), 0) == -1)   {
+        perror("Błąd: Nie udało się wysłać wiadomości do kolejki komunikatów za pomocą msgsnd. Upewnij się, że kolejka istnieje i że proces ma odpowiednie uprawnienia.");
+        exit(EXIT_FAILURE);
+    }
 }
+

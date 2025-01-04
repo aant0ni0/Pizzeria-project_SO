@@ -6,6 +6,7 @@
 
 int create_msg_queue(key_t key);
 void remove_msg_queue(int msgid);
+int get_msg_queue(key_t key);
 
 int create_semaphore(key_t key);
 int get_semaphore(key_t key);
