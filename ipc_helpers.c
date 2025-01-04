@@ -8,6 +8,14 @@ int create_msg_queue(key_t){
         exit(EXIT_FAILURE);
     }
     return msgid;
+
+}
+
+
+void remove_msg_queue(int msgid){
+    if(msgctl(msgid, IPC_RMID, NULL) == -1){
+        perror("Błąd: Nie udało się usunąć kolejki komunikatów za pomocą msgctl. Upewnij się, że identyfikator kolejki jest poprawny oraz że proces ma wystarczające uprawnienia do jej usunięcia.");
+    }
 }
 
 

@@ -81,7 +81,6 @@ int main(){
     int x4 = atoi(argv[4]);
 
 
-    //ustawienie obslugi sygnalu
     struct sigaction sa;
     sa.sa_handler() = fire_handler;
     sigemptyset(&sa.sa_mask);
@@ -149,5 +148,13 @@ int main(){
     }
 
     printf("[KASJER] Pożar lub koniec pracy. Zamykam pizzerię.\n");
+
+    detach_shared_memory(tables);
+    remove_shared_memory(shmid);
+    remove_msg_queue(msgid);
+    remove_semaphore(semid);
+
+
+    return 0;
 
 }

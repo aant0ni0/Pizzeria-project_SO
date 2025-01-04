@@ -18,3 +18,18 @@ TablesState* attach_shared_memory(int shmid){
     return (TablesState*)addr;
 }
 
+
+
+void detach_shared_memory(const void* shmaddr){
+    if(shmdt(shmaddr) == -1){
+        perror("Błąd: Nie udało się odłączyć segmentu pamięci dzielonej za pomocą shmdt...");
+
+    }
+}
+
+void remove_shared_memory(int shmid){
+    if(shmctl(shmid, IPC_RMID, NULL) == -1){
+        perror("Błąd: Nie udało się usunąć segmentu pamięci dzielonej za pomocą shmctl. Upewnij się, że identyfikator segmentu jest poprawny oraz że proces ma wystarczające uprawnienia.");
+    }
+
+}
