@@ -129,10 +129,19 @@ int main(){
             if (errno == ENOMSG) {
                 usleep(100000);
                 continue;
-            } else {
-                perror("msgrcv");
+
+            }else if(errno == EINTR){
+                if(fireHappened) break;
+            } 
+            
+            else {
+                perror("Błąd: Nie udało się odebrać wiadomości z kolejki komunikatów za pomocą msgrcv. Upewnij się, że kolejka istnieje oraz że proces ma odpowiednie uprawnienia do odczytu.");
                 break;
             }
+        }
+
+        if(clientCount < MAX_CLIENTS){
+            clientPIDs[clientCount++] = req.pidClient;
         }
 
         struct msgbuf_response resp;
@@ -155,7 +164,36 @@ int main(){
 
     }
 
-    printf("[KASJER] Pożar lub koniec pracy. Zamykam pizzerię.\n");
+
+
+
+    printf("[KASJER] Pożar wykryty. Wypraszam klientów...\n");
+
+    for (int i = 0; i < clientCount; i++) {
+        kill(clientPIDs[i], FIRE_SIGNAL);  
+    }
+
+    bool someClientAlive = true;
+    while (someClientAlive) {
+        someClientAlive = false;
+        for (int i = 0; i < clientCount; i++) {
+            if (clientPIDs[i] == 0) {
+                continue; 
+            }
+            if (kill(clientPIDs[i], 0) == 0) {
+                someClientAlive = true;
+            } else {
+                if (errno == ESRCH) {
+                    clientPIDs[i] = 0;
+                }
+            }
+        }
+        if (someClientAlive) {
+            usleep(200000);
+        }
+    }
+
+    printf("[KASJER] Wszyscy klienci wyszli. Zamykam pizzerię.\n");
 
     detach_shared_memory(tables);
     remove_shared_memory(shmid);
