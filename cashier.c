@@ -5,8 +5,12 @@
 #include <ctype.h>     
 #include <unistd.h>   
 
+#define MAX_CLIENTS 100
 
-static volatile sig_atomic_t fireHappened = 0;
+static volatile sig_atomic_t fireHappened 0;
+
+static pid_t clientPIDs[MAX_CLIENTS];
+static int clientCount = 0;
 
 void fire_handler(int signo){
     if(signo == FIRE_SIGNAL){
@@ -113,7 +117,10 @@ int main(int argc, char* argv[]){
     tables->free_2_person_tables = x2;
     tables->free_3_person_tables = x3;
     tables->free_4_person_tables = x4;
-    semaphore_up(semid);
+
+    tables->half_occupied_2_person_tables = 0;
+    tables->half_occupied_4_person_tables = 0;
+    sempahore_up(semid);
 
     printf("[KASJER] Start pizzerii: stoliki 1-os:%d 2-os:%d 3-os:%d 4-os:%d\n",
            x1, x2, x3, x4);
@@ -126,10 +133,19 @@ int main(int argc, char* argv[]){
             if (errno == ENOMSG) {
                 usleep(100000);
                 continue;
-            } else {
-                perror("msgrcv");
+
+            }else if(errno == EINTR){
+                if(fireHappened) break;
+            } 
+            
+            else {
+                perror("Błąd: Nie udało się odebrać wiadomości z kolejki komunikatów za pomocą msgrcv. Upewnij się, że kolejka istnieje oraz że proces ma odpowiednie uprawnienia do odczytu.");
                 break;
             }
+        }
+
+        if(clientCount < MAX_CLIENTS){
+            clientPIDs[clientCount++] = req.pidClient;
         }
 
         struct msgbuf_response resp;
@@ -152,7 +168,36 @@ int main(int argc, char* argv[]){
 
     }
 
-    printf("[KASJER] Pożar lub koniec pracy. Zamykam pizzerię.\n");
+
+
+
+    printf("[KASJER] Pożar wykryty. Wypraszam klientów...\n");
+
+    for (int i = 0; i < clientCount; i++) {
+        kill(clientPIDs[i], FIRE_SIGNAL);  
+    }
+
+    bool someClientAlive = true;
+    while (someClientAlive) {
+        someClientAlive = false;
+        for (int i = 0; i < clientCount; i++) {
+            if (clientPIDs[i] == 0) {
+                continue; 
+            }
+            if (kill(clientPIDs[i], 0) == 0) {
+                someClientAlive = true;
+            } else {
+                if (errno == ESRCH) {
+                    clientPIDs[i] = 0;
+                }
+            }
+        }
+        if (someClientAlive) {
+            usleep(200000);
+        }
+    }
+
+    printf("[KASJER] Wszyscy klienci wyszli. Zamykam pizzerię.\n");
 
     detach_shared_memory(tables);
     remove_shared_memory(shmid);

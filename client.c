@@ -2,6 +2,14 @@
 #include "ipc_helpers.h"
 #include "sharedmem_helpers.h"
 
+static void fire_exit_handler(int signo) {
+    if (signo == FIRE_SIGNAL) {
+        printf("[KLIENT %d] Otrzymałem sygnał pożaru. Wychodzę NATYCHMIAST!\n", getpid());
+        exit(0);
+    }
+}
+
+
 int main(int argc, char* argv[]){
     if(argc < 3){
         fprintf(stderr, "Poprawne użycie: %s <liczba_osób_w_grupie> <czas_jedzenia_w_sekundach>\n", argv[0]);
@@ -10,6 +18,13 @@ int main(int argc, char* argv[]){
 
     int groupSize = atoi(argv[1]);
     int eatTime = atoi(argv[2]);
+
+    struct sigaction sa;
+    sa.sa_handler = fire_exit_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(FIRE_SIGNAL, &sa, NULL);
+    
 
     if (groupSize < 1 || groupSize > MAX_GROUP_SIZE) {
         fprintf(stderr, "[KLIENT] Niepoprawny rozmiar grupy\n");
