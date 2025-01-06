@@ -1,7 +1,12 @@
 #include "common.h"
 #include <ctype.h>
 
+#define MAX_CLIENTS 100
+
 static volatile sig_atomic_t fireHappened 0;
+
+static pid_t clientPIDs[MAX_CLIENTS];
+static int clientCount = 0;
 
 void fire_handler(int signo){
     if(signo == FIRE_SINGAL){
@@ -108,6 +113,9 @@ int main(){
     tables->free_2_person_tables = x2;
     tables->free_3_person_tables = x3;
     tables->free_4_person_tables = x4;
+
+    tables->half_occupied_2_person_tables = 0;
+    tables->half_occupied_4_person_tables = 0;
     sempahore_up(semid);
 
     printf("[KASJER] Start pizzerii: stoliki 1-os:%d 2-os:%d 3-os:%d 4-os:%d\n",
