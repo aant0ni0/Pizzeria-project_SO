@@ -63,6 +63,16 @@ int main(int argc, char* argv[]){
         printf("[KLIENT %d] Otrzymałem stolik %d-osobowy. Jem przez %d sekund...\n", getpid(), resp.tableSize, eatTime);
         sleep(eatTime);
         printf("[KLIENT %d] Skończyłem, wychodzę.\n", getpid());
+        struct msgbuf_release release_msg;
+        release_msg.mtype = 3;  
+        release_msg.tableSize = resp.tableSize;
+        release_msg.groupSize = req.groupSize;  
+        release_msg.pidClient = getpid();
+
+        if (msgsnd(msgid, &release_msg, sizeof(release_msg) - sizeof(long), 0) == -1) {
+            perror("Błąd: Nie udało się wysłać wiadomości o zwolnieniu stolika.");
+            exit(EXIT_FAILURE);
+        }
     }
 }
 

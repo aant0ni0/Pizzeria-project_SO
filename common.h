@@ -33,7 +33,7 @@ typedef struct {
 
 
 struct msgbuf_request {
-    long mtype;  // typ wiadomości: 1 = zapytanie od klienta, 2 = odpowiedź kasjera
+    long mtype;  // typ wiadomości: 1 = zapytanie od klienta, 2 = odpowiedź kasjera , 3 wiadomosc o zwolnieniu stolika
     int groupSize;
     int pidClient; // PID procesu-klienta (do ewentualnej identyfikacji)
 };
@@ -43,6 +43,14 @@ struct msgbuf_response {
     bool canSit;
     int tableSize;  // 1,2,3,4 - jaki stolik przydzielony(lub 0 jeśli brak)
 };
+
+struct msgbuf_release {
+    long mtype;
+    int tableSize;
+    int groupSize;
+    int pidClient;
+};
+
 
 #define FIRE_SIGNAL SIGUSR1
 

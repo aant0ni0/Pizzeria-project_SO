@@ -7,7 +7,7 @@
 
 #define MAX_CLIENTS 100
 
-static volatile sig_atomic_t fireHappened 0;
+static volatile sig_atomic_t fireHappened = 0;
 
 static pid_t clientPIDs[MAX_CLIENTS];
 static int clientCount = 0;
@@ -17,6 +17,44 @@ void fire_handler(int signo){
         fireHappened = 1;
     }
 }
+
+//ZAKLADAMY ZE GDY ISTNIEJĄ DWA TAK SAMO DUZE, W POLOWIE WOLNE STOLIKI, SIEDZACY PRZY NICH LUDZIE PRZYSIADAJA SIE DO SIEBIE ZEBY ZWOLNIC JEDEN PEŁNY STOLIK - TAKI JEST USTALONY REGULAMIN PIZZERI 
+// (Rozwiązanie jest bardziej dochodowe dla wlasciciela a tresc zadania go nie wyklucza)
+void free_table(TablesState* state, int tableSize, int groupSize) {
+    switch(tableSize) {
+        case 1:
+            state->free_1_person_tables++;
+            break;
+
+        case 2:
+            if (groupSize == 2) {
+                state->free_2_person_tables++;
+            } else if (groupSize == 1 && state->half_occupied_2_person_tables > 0) {
+                state->half_occupied_2_person_tables--;
+                state->free_2_person_tables++;
+            } else if(groupSize ==1 && state->half_occupied_2_person_tables == 0 ){
+                state->half_occupied_2_person_tables++;
+            }
+            break;
+
+        case 3:
+
+            state->free_3_person_tables++;
+            break;
+
+        case 4:
+            if (groupSize == 4) {
+                state->free_4_person_tables++;
+            }  else if (groupSize == 2 && state->half_occupied_4_person_tables > 0) {
+                state->half_occupied_4_person_tables--;
+                state->free_4_person_tables++;
+            } else if(groupSize == 2 && state->half_occupied_4_person_tables == 0 ){
+                state->half_occupied_4_person_tables++;
+            }
+            break;
+    }
+}
+
 
 int check_and_seat_group(TablesState* state, int groupSize) {
     switch (groupSize) {
@@ -31,10 +69,6 @@ int check_and_seat_group(TablesState* state, int groupSize) {
                 state->free_2_person_tables--;
                 state->half_occupied_2_person_tables++; 
                 return 2;
-            } else if (state->free_4_person_tables > 0) {
-                state->free_4_person_tables--;
-                state->half_occupied_4_person_tables++;
-                return 4;
             }
             break;
 
@@ -120,54 +154,76 @@ int main(int argc, char* argv[]){
 
     tables->half_occupied_2_person_tables = 0;
     tables->half_occupied_4_person_tables = 0;
-    sempahore_up(semid);
+    semaphore_up(semid);
 
     printf("[KASJER] Start pizzerii: stoliki 1-os:%d 2-os:%d 3-os:%d 4-os:%d\n",
            x1, x2, x3, x4);
     
 
     while (!fireHappened) {
-        struct msgbuf_request req;
-        ssize_t ret = msgrcv(msgid, &req, sizeof(req) - sizeof(long), 1, IPC_NOWAIT);
-        if (ret == -1) {
-            if (errno == ENOMSG) {
-                usleep(100000);
-                continue;
+        bool noMessage = true;
 
-            }else if(errno == EINTR){
-                if(fireHappened) break;
-            } 
-            
+        // 1) Spróbuj odebrać zapytania o stolik (mtype=1)
+        {
+            struct msgbuf_request req;
+            ssize_t ret = msgrcv(msgid, &req, sizeof(req) - sizeof(long), 1, IPC_NOWAIT);
+            if (ret != -1) {
+                noMessage = false;
+                if (clientCount < MAX_CLIENTS) {
+                    clientPIDs[clientCount++] = req.pidClient;
+                }
+
+                struct msgbuf_response resp;
+                resp.mtype = 2;
+                resp.canSit = false;
+                resp.tableSize = 0;
+
+                semaphore_down(semid);
+                int tableAssigned = check_and_seat_group(tables, req.groupSize);
+                semaphore_up(semid);
+
+                if (tableAssigned > 0) {
+                    resp.canSit = true;
+                    resp.tableSize = tableAssigned;
+                }
+
+                if (msgsnd(msgid, &resp, sizeof(resp) - sizeof(long), 0) == -1) {
+                    perror("[KASJER] Błąd msgsnd w odpowiedzi");
+                }
+            }
             else {
-                perror("Błąd: Nie udało się odebrać wiadomości z kolejki komunikatów za pomocą msgrcv. Upewnij się, że kolejka istnieje oraz że proces ma odpowiednie uprawnienia do odczytu.");
-                break;
+                if (errno != ENOMSG && errno != EINTR) {
+                    perror("[KASJER] Błąd msgrcv (mtype=1)");
+                }
             }
         }
 
-        if(clientCount < MAX_CLIENTS){
-            clientPIDs[clientCount++] = req.pidClient;
+        // 2) Spróbuj odebrać komunikaty o zwolnieniu stolika (mtype=3)
+        {
+            struct msgbuf_release rel;
+            ssize_t ret = msgrcv(msgid, &rel, sizeof(rel) - sizeof(long), 3, IPC_NOWAIT);
+            if (ret != -1) {
+                noMessage = false;
+
+                semaphore_down(semid);
+                free_table(tables, rel.tableSize, rel.groupSize);
+                semaphore_up(semid);
+
+                printf("[KASJER] Klient %d zwolnił stolik %d-os (grupa:%d)\n",
+                        rel.pidClient, rel.tableSize, rel.groupSize);
+            }
+            else {
+                if (errno != ENOMSG && errno != EINTR) {
+                    perror("[KASJER] Błąd msgrcv (mtype=3)");
+                }
+            }
         }
 
-        struct msgbuf_response resp;
-        resp.mtype = 2; 
-        resp.canSit = false;
-        resp.tableSize = 0;
-
-        semaphore_down(semid);
-        int tableAssigned = check_and_seat_group(tables, req.groupSize);
-        semaphore_up(semid);
-
-        if(tableAssigned > 0){
-            resp.canSit = true;
-            resp.tableSize = tableAssigned;
+        // Jeśli nie było żadnej wiadomości do obsłużenia, zrób mały sleep
+        if (noMessage) {
+            usleep(100000);
         }
-
-        if (msgsnd(msgid, &resp, sizeof(resp) - sizeof(long), 0) == -1) {
-            perror("Błąd: Nie udało się wysłać odpowiedzi do klienta za pomocą msgsnd. Upewnij się, że kolejka komunikatów istnieje, nie jest pełna oraz że proces ma wystarczające uprawnienia do zapisu.");
-        }
-
     }
-
 
 
 
