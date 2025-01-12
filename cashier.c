@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
                 noMessage = false;
 
                 free_table(rel.tableSize, rel.groupSize);
-                printf("[KASJER] Grupa #%d (PID=%d) zwolniła stolik %d-os (groupSize:%d)\n",
+                printf("[KASJER] Grupa #%d (PID=%d) zwolniła stolik %d-os (groupSize:%d)\n\n",
                        rel.groupId, rel.pidClient, rel.tableSize, rel.groupSize);
             }
             else {
