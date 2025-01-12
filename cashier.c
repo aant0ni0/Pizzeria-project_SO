@@ -1,7 +1,8 @@
 #include "common.h"
-
-
 #define MAX_CLIENTS 100
+
+struct timespec req = {0, 100 * 1000000L};
+
 
 // flaga pożaru
 static volatile sig_atomic_t fireHappened = 0;
@@ -25,6 +26,13 @@ void fire_handler(int signo) {
     if (signo == FIRE_SIGNAL) {
         fireHappened = 1;
     }
+}
+
+void sleep_for_ms(int milliseconds) {
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;             
+    ts.tv_nsec = (milliseconds % 1000) * 1000000; 
+    nanosleep(&ts, NULL);
 }
 
 void init_tables(int x1, int x2, int x3, int x4) {
@@ -217,7 +225,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (noMessage) {
-            nanosleep(&req, NULL);
+            sleep_for_ms(100);
         }
     }
 
@@ -244,7 +252,7 @@ int main(int argc, char* argv[]) {
             }
         }
         if (someClientAlive) {
-            nanosleep(&req, NULL);
+            sleep_for_ms(100);
         }
     }
 

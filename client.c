@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <time.h>
 
+
 // Obsługa sygnału pożaru
 static void client_fire_handler(int signo) {
     if (signo == FIRE_SIGNAL) {

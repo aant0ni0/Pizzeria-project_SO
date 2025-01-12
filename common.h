@@ -14,6 +14,8 @@
 #include <wait.h>
 #include <pthread.h>
 #include <time.h>
+#include <sys/select.h>
+
 
 #define PROJECT_PATH "./"
 #define PROJECT_ID 'S'
@@ -50,7 +52,6 @@ struct msgbuf_release {
     pid_t pidClient;
 };
 
-struct timespec req = {0, 100 * 1000000L}; 
 
 
 #endif
