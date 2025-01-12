@@ -10,27 +10,26 @@ static void client_fire_handler(int signo) {
     }
 }
 
-// Struktura opisująca grupę (używana przez wątki w obrębie danej grupy)
+// Struktura opisująca jedną grupę (dzielona przez wątki w grupie)
 typedef struct {
     int groupId;      
     int groupSize;    
     int tableSize;    
     bool canSit;      
     bool responseReady;
-
-    int eatTime;       
-
+    int eatTime;      
     pthread_mutex_t lock;
     pthread_cond_t  cond;
 } GroupInfo;
 
-// Wątek zwykły (członek grupy)
+//Wątek zwykły (członek grupy)
 void* client_thread_func(void* arg) {
     GroupInfo* g = (GroupInfo*)arg;
 
+    // Czekamy, aż lider ustali, czy mamy stolik, i ustawi responseReady
     pthread_mutex_lock(&g->lock);
     while (!g->responseReady) {
-        pthread_cond_wait(&g->cond, &g->lock); //odblokowanie mutexu i czekanie na sygnal lidera
+        pthread_cond_wait(&g->cond, &g->lock);
     }
 
     bool localCanSit = g->canSit;
@@ -40,19 +39,20 @@ void* client_thread_func(void* arg) {
     int  localEat    = g->eatTime;    
     pthread_mutex_unlock(&g->lock);
 
+    // Jeśli brak stolika -> kończymy się
     if (!localCanSit) {
-        // Brak stolika
         pthread_exit(NULL);
     } else {
-        printf("[CZLONEK GRUPY %ld] (gr %d-os.) Jem przy stoliku %d-os. %d s\n",
-               localGId,localSize, localTable, localEat);
+        printf("[CZLONEK GRUPY %d] (grupa %d-os.) Jem przy stoliku %d-os. %d s\n",
+               localGId, localSize, localTable, localEat);
         sleep(localEat);
 
+        // Wątek kończy się, lider zwolni stolik
         pthread_exit(NULL);
     }
 }
 
-// Wątek lider (pierwsza osoba w grupie)
+//Wątek lidera
 void* leader_thread_func(void* arg) {
     GroupInfo* g = (GroupInfo*)arg;
 
@@ -84,9 +84,9 @@ void* leader_thread_func(void* arg) {
     // Wysyłamy zapytanie (mtype=1)
     struct msgbuf_request req;
     req.mtype     = 1;
-    req.groupId   = g->groupId;
-    req.groupSize = g->groupSize;
-    req.pidClient = getpid();
+    req.groupId   = g->groupId;   // ID grupy
+    req.groupSize = g->groupSize; // 1..3
+    req.pidClient = getpid();     // PID procesu klienta
 
     if (msgsnd(msgid, &req, sizeof(req) - sizeof(long), 0) == -1) {
         perror("[LEADER] msgsnd request");
@@ -99,7 +99,7 @@ void* leader_thread_func(void* arg) {
         pthread_exit(NULL);
     }
 
-    // czekamy na odpowiedź kasjera (mtype=2)
+    // Odbieramy odpowiedź (mtype=2)
     struct msgbuf_response resp;
     if (msgrcv(msgid, &resp, sizeof(resp) - sizeof(long), 2, 0) == -1) { 
         perror("[LEADER] msgrcv response");
@@ -112,42 +112,45 @@ void* leader_thread_func(void* arg) {
         pthread_exit(NULL);
     }
 
-    // Ustawiamy dane w strukturze
+    // Aktualizujemy w strukturze info o przydziale
     pthread_mutex_lock(&g->lock);
     g->canSit       = resp.canSit;
-    g->tableSize    = resp.tableSize;
+    g->tableSize    = resp.tableSize;  // 1..4
     g->responseReady = true;
 
+    // Jeśli kasjer przydzielił stolik, losujemy czas jedzenia (np. 2..5 s)
     if (resp.canSit) {
-        g->eatTime = 2 + (rand() % 20);  // np. 2..5 sekund
+        g->eatTime = 2 + (rand() % 5);
     } else {
         g->eatTime = 0;
     }
 
-    // Pobudka pozostałych wątków
+    // Pobudka innych wątków grupy
     pthread_cond_broadcast(&g->cond);
     pthread_mutex_unlock(&g->lock);
 
-    // Jeśli brak stolika -> wyjście
     if (!resp.canSit) {
-        printf("[LEADER %ld] Grupa #%d (%d-os.) NIE otrzymała stolika.\n",
-               pthread_self(), g->groupId, g->groupSize);
+        // brak stolika
+        printf("\n[LEADER] Grupa #%d (%d-os.) NIE otrzymała stolika.\n",
+               g->groupId, g->groupSize);
         pthread_exit(NULL);
     } else {
-        int eatTime;
+        // Mamy stolik
+        int localEat;
         pthread_mutex_lock(&g->lock);
-        eatTime = g->eatTime;
+        localEat = g->eatTime;
         pthread_mutex_unlock(&g->lock);
 
-        printf("[LIDER GRUPY %d] (gr %d-os.) Grupa otrzymała stolik %d-os. Jem %d s.\n",
-            g->groupId, g->groupSize, resp.tableSize, eatTime);
-        sleep(eatTime);
+        printf("\n\n[LIDER GRUPY %d] (gr %d-os.) Otrzymała stolik %d-os. Jem %d s.\n",
+               g->groupId, g->groupSize, resp.tableSize, localEat);
+        sleep(localEat);
 
-        // Po jedzeniu zwalniamy stolik
+        // Po jedzeniu lider zwalnia stolik
         struct msgbuf_release rel;
         rel.mtype     = 3;
         rel.groupId   = g->groupId;
         rel.tableSize = resp.tableSize;
+        rel.tableIndex= resp.tableIndex; 
         rel.groupSize = g->groupSize;
         rel.pidClient = getpid();
 
@@ -161,25 +164,27 @@ void* leader_thread_func(void* arg) {
 // Zmienna globalna do nadawania ID grup
 static int nextGroupId = 1;
 
-// Funkcja generująca jedną grupę
+// Generowanie jednej grupy
 void generate_one_group() {
+    // Losujemy rozmiar grupy: 1..3
     int groupSize = 1 + (rand() % 3);
 
+    // Alokujemy strukturę grupy
     GroupInfo* g = malloc(sizeof(GroupInfo));
     g->groupId   = nextGroupId++;
     g->groupSize = groupSize;
     g->tableSize = 0;
     g->canSit    = false;
     g->responseReady = false;
-    g->eatTime   = 0;  // domyślnie
+    g->eatTime   = 0;  
 
     pthread_mutex_init(&g->lock, NULL);
     pthread_cond_init(&g->cond, NULL);
 
-    // Tablica wątków
+    // Tworzymy wątki
     pthread_t* tids = calloc(groupSize, sizeof(pthread_t));
 
-    // Lider
+    // Pierwszy = lider
     pthread_create(&tids[0], NULL, leader_thread_func, g);
 
     // Reszta
@@ -187,7 +192,7 @@ void generate_one_group() {
         pthread_create(&tids[i], NULL, client_thread_func, g);
     }
 
-    // Detach
+    // Odłączamy wątki, by nie blokować joinowania
     for (int i = 0; i < groupSize; i++) {
         pthread_detach(tids[i]);
     }
@@ -195,7 +200,7 @@ void generate_one_group() {
 }
 
 int main(int argc, char* argv[]) {
-    // Sygnał pożaru
+    // Obsługa sygnału (pożar)
     struct sigaction sa;
     sa.sa_handler = client_fire_handler;
     sigemptyset(&sa.sa_mask);
@@ -204,16 +209,14 @@ int main(int argc, char* argv[]) {
 
     srand(time(NULL));
 
-    printf("[KLIENT %d] Start. Generuję grupy w pętli...\n", getpid());
+    printf("[KLIENT %d] Start. Generuję grupy w pętli...\n\n", getpid());
 
-    // Nieskończona pętla: co pewien czas tworzona jest nowa grupa
+    // Nieskończona pętla
     while (1) {
         generate_one_group();
-
-        printf("\n\n");
         
-        // przerwa
-        int pauseSec = 2 + (rand() % 4);
+        // Przerwa między przyjściami grup
+        int pauseSec = 2 + (rand() % 3);
         sleep(pauseSec);
     }
     return 0;
