@@ -125,7 +125,7 @@ void free_table(int tableIndex, int groupSize) {
     if (cap / groupSize == 2) {
         tableState[tableIndex] = tableState[tableIndex] + 1;
     }
-    else if (groupSize == cap) {
+    else if (groupSize == cap || (groupSize == 3 && cap == 4)) {
         tableState[tableIndex] = 2;
     }
 }
@@ -157,15 +157,17 @@ int main(int argc, char* argv[]) {
     // Kolejka
     key_t key = ftok(PROJECT_PATH, PROJECT_ID);
     if (key == -1) {
-        perror("ftok");
+        perror("[KASJER] Błąd funkcji ftok - nie można wygenerować klucza IPC. Sprawdź, czy ścieżka PROJECT_PATH i identyfikator PROJECT_ID są poprawne.");
         exit(EXIT_FAILURE);
     }
 
+
     int msgid = msgget(key, IPC_CREAT | 0666);
     if (msgid == -1) {
-        perror("msgget");
+        perror("[KASJER] Błąd funkcji msgget - nie można utworzyć kolejki komunikatów. Sprawdź, czy masz odpowiednie uprawnienia do utworzenia kolejki.");
         exit(EXIT_FAILURE);
     }
+
 
     // Pętla obsługi dopóki brak pożaru
     while (!fireHappened) {

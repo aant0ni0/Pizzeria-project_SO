@@ -121,7 +121,7 @@ void* leader_thread_func(void* arg) {
 
     // Jeśli kasjer przydzielił stolik, losujemy czas jedzenia (np. 2..5 s)
     if (resp.canSit) {
-        g->eatTime = 2 + (rand() % 5);
+        g->eatTime = 7 + (rand() % 6);
     } else {
         g->eatTime = 0;
     }
@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
         generate_one_group();
         
         // Przerwa między przyjściami grup
-        int pauseSec = 2 + (rand() % 3);
+        int pauseSec = 3 + (rand() % 3);
         sleep(pauseSec);
     }
     return 0;
