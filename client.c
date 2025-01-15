@@ -36,7 +36,7 @@ void* client_thread_func(void* arg) {
     bool localCanSit = g->canSit;
     int  localTable  = g->tableSize;
     int  localGId    = g->groupId;
-    int  localSize   = g->groupSize;
+    //int  localSize   = g->groupSize;
     int  localEat    = g->eatTime;    
     pthread_mutex_unlock(&g->lock);
 
@@ -44,8 +44,8 @@ void* client_thread_func(void* arg) {
     if (!localCanSit) {
         pthread_exit(NULL);
     } else {
-        printf("[CZLONEK GRUPY %d] (grupa %d-os.) Jem przy stoliku %d-os. %d s\n",
-               localGId, localSize, localTable, localEat);
+        printf("[CZLONEK GRUPY %d] Jem przy stoliku %d-os. %d s\n",
+               localGId,localTable, localEat);
         sleep(localEat);
 
         // Wątek kończy się, lider zwolni stolik
@@ -57,10 +57,9 @@ void* client_thread_func(void* arg) {
 void* leader_thread_func(void* arg) {
     GroupInfo* g = (GroupInfo*)arg;
 
-    // Łączymy się z kolejką
     key_t key = ftok(PROJECT_PATH, PROJECT_ID);
     if (key == -1) {
-        perror("[LEADER] ftok");
+        perror("[LEADER] Błąd: Nie udało się wygenerować klucza IPC za pomocą ftok");
         pthread_mutex_lock(&g->lock);
         g->canSit = false;
         g->tableSize = 0;
@@ -72,7 +71,7 @@ void* leader_thread_func(void* arg) {
 
     int msgid = msgget(key, 0666);
     if (msgid == -1) {
-        perror("[LEADER] msgget");
+        perror("[LEADER] Błąd: Nie udało się połączyć z kolejką komunikatów za pomocą msgget");
         pthread_mutex_lock(&g->lock);
         g->canSit = false;
         g->tableSize = 0;
@@ -90,7 +89,7 @@ void* leader_thread_func(void* arg) {
     req.pidClient = getpid();     // PID procesu klienta
 
     if (msgsnd(msgid, &req, sizeof(req) - sizeof(long), 0) == -1) {
-        perror("[LEADER] msgsnd request");
+        perror("[LEADER] Błąd: Nie udało się wysłać zapytania za pomocą msgsnd");
         pthread_mutex_lock(&g->lock);
         g->canSit = false;
         g->tableSize = 0;
@@ -103,7 +102,7 @@ void* leader_thread_func(void* arg) {
     // Odbieramy odpowiedź (mtype=2)
     struct msgbuf_response resp;
     if (msgrcv(msgid, &resp, sizeof(resp) - sizeof(long), 2, 0) == -1) { 
-        perror("[LEADER] msgrcv response");
+        perror("[LEADER] Błąd: Nie udało się odebrać odpowiedzi za pomocą msgrcv");
         pthread_mutex_lock(&g->lock);
         g->canSit = false;
         g->tableSize = 0;
@@ -210,7 +209,7 @@ int main(int argc, char* argv[]) {
 
     srand(time(NULL));
 
-    printf("[KLIENT %d] Start. Generuję grupy w pętli...\n\n", getpid());
+    printf("[KLIENT %d] Grupy klientów zaczynają przychodzić...\n\n", getpid());
 
     // Nieskończona pętla
     while (1) {

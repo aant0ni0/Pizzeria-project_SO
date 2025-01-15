@@ -171,65 +171,65 @@ int main(int argc, char* argv[]) {
 
     // Pętla obsługi dopóki brak pożaru
     while (!fireHappened) {
-        bool noMessage = true;
+    bool noMessage = true;
 
-        // 1) Odbierz zapytanie (mtype=1)
-        {
-            struct msgbuf_request req;
-            ssize_t ret = msgrcv(msgid, &req, sizeof(req) - sizeof(long), 1, IPC_NOWAIT);
-            if (ret != -1) {
-                noMessage = false;
+    // 1) Odbierz zapytanie (mtype=1)
+    {
+        struct msgbuf_request req;
+        ssize_t ret = msgrcv(msgid, &req, sizeof(req) - sizeof(long), 1, IPC_NOWAIT);
+        if (ret != -1) {
+            noMessage = false;
 
-                // Rejestrujemy PID
-                if (clientCount < MAX_CLIENTS) {
-                    clientPIDs[clientCount++] = req.pidClient;
-                }
-
-                // Przygotowujemy odpowiedź
-                struct msgbuf_response resp;
-                resp.mtype = 2;
-                resp.canSit = false;
-                resp.tableIndex = -1;
-                resp.tableSize   = 0;
-                resp.groupId    = req.groupId;
-
-                int idx = check_and_seat_group(req.groupSize);
-                if (idx >= 0) {
-                    resp.canSit = true;
-                    resp.tableIndex = idx;
-                    resp.tableSize = tableCapacity[idx];
-                }
-
-                if (msgsnd(msgid, &resp, sizeof(resp) - sizeof(long), 0) == -1) {
-                    perror("[KASJER] msgsnd response");
-                }
-            } else {
-                if (errno != ENOMSG && errno != EINTR) {
-                    perror("[KASJER] msgrcv mtype=1");
-                }
+            // Rejestrujemy PID
+            if (clientCount < MAX_CLIENTS) {
+                clientPIDs[clientCount++] = req.pidClient;
             }
-        }
 
-        // 2) Odbierz zwolnienie (mtype=3)
-        {
-            struct msgbuf_release rel;
-            ssize_t ret = msgrcv(msgid, &rel, sizeof(rel) - sizeof(long), 3, IPC_NOWAIT);
-            if (ret != -1) {
-                noMessage = false;
-                free_table(rel.tableIndex, rel.groupSize);
-                printf("\n[KASJER] Zwolniono stolik %d os. (grupa %d os.)\n\n",
-                       tableCapacity[rel.tableIndex], rel.groupSize);
-            } else {
-                if (errno != ENOMSG && errno != EINTR) {
-                    perror("[KASJER] msgrcv mtype=3");
-                }
+            // Przygotowujemy odpowiedź
+            struct msgbuf_response resp;
+            resp.mtype = 2;
+            resp.canSit = false;
+            resp.tableIndex = -1;
+            resp.tableSize   = 0;
+            resp.groupId    = req.groupId;
+
+            int idx = check_and_seat_group(req.groupSize);
+            if (idx >= 0) {
+                resp.canSit = true;
+                resp.tableIndex = idx;
+                resp.tableSize = tableCapacity[idx];
             }
-        }
 
-        if (noMessage) {
-            sleep_for_ms(100);
+            if (msgsnd(msgid, &resp, sizeof(resp) - sizeof(long), 0) == -1) {
+                perror("[KASJER] Błąd: Nie udało się wysłać odpowiedzi za pomocą msgsnd");
+            }
+        } else {
+            if (errno != ENOMSG && errno != EINTR) {
+                perror("[KASJER] Błąd: Nie udało się odebrać zapytania za pomocą msgrcv (mtype=1)");
+            }
         }
     }
+
+    // 2) Odbierz zwolnienie (mtype=3)
+    {
+        struct msgbuf_release rel;
+        ssize_t ret = msgrcv(msgid, &rel, sizeof(rel) - sizeof(long), 3, IPC_NOWAIT);
+        if (ret != -1) {
+            noMessage = false;
+            free_table(rel.tableIndex, rel.groupSize);
+            printf("\n[KASJER] Zwolniono stolik %d os. (grupa %d os.)\n\n",
+                   tableCapacity[rel.tableIndex], rel.groupSize);
+        } else {
+            if (errno != ENOMSG && errno != EINTR) {
+                perror("[KASJER] Błąd: Nie udało się odebrać zwolnienia stolika za pomocą msgrcv (mtype=3)");
+            }
+        }
+    }
+
+    if (noMessage) {
+        sleep_for_ms(100);
+    }
+}
 
     // Pożar
     printf("[KASJER] Pożar wykryty -> wypraszam klientów.\n");
@@ -260,8 +260,9 @@ int main(int argc, char* argv[]) {
 
     // Usuwamy kolejkę
     if (msgctl(msgid, IPC_RMID, NULL) == -1) {
-        perror("[KASJER] msgctl remove");
+        perror("[KASJER] Błąd: Nie udało się usunąć kolejki komunikatów za pomocą msgctl");
     }
+
     free(tableCapacity);
     free(tableState);
 
