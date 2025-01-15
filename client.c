@@ -131,8 +131,6 @@ void* leader_thread_func(void* arg) {
 
     if (!resp.canSit) {
         // brak stolika
-        printf("\n[LEADER] Grupa #%d (%d-os.) NIE otrzymała stolika.\n",
-               g->groupId, g->groupSize);
         pthread_exit(NULL);
     } else {
         // Mamy stolik

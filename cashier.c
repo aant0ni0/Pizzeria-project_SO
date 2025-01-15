@@ -35,6 +35,16 @@ void sleep_for_ms(int milliseconds) {
     nanosleep(&ts, NULL);
 }
 
+int is_positive_integer(const char *str) {
+    if (str == NULL || *str == '\0') return 0; // Pusty ciąg lub NULL
+    while (*str) {
+        if (!isdigit(*str)) return 0; // Jeśli znak nie jest cyfrą, zwróć 0 (błąd)
+        str++;
+    }
+    return 1; // Wszystkie znaki są cyframi
+}
+
+
 void init_tables(int x1, int x2, int x3, int x4) {
     totalTables = x1 + x2 + x3 + x4;
     tableCapacity = malloc(sizeof(int) * totalTables);
@@ -133,9 +143,18 @@ void free_table(int tableIndex, int groupSize) {
 
 int main(int argc, char* argv[]) {
     if (argc < 5) {
-        fprintf(stderr, "Użycie: %s X1 X2 X3 X4\n", argv[0]);
+        fprintf(stderr, "Błąd: Niewystarczająca liczba argumentów.\n");
+        fprintf(stderr, "Podaj dane w formacie: %s <liczba stolików 1-osobowych> <liczba stolików 2-osobowych> <liczba stolików 3-osobowych> <liczba stolików 4-osobowych>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
+
+    for (int i = 1; i < argc; i++) {
+        if (!is_positive_integer(argv[i])) {
+            fprintf(stderr, "Błąd: Argumenty muszą być dodatnimi liczbami całkowitymi.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
 
     // Obsługa sygnału
     struct sigaction sa;
@@ -149,6 +168,14 @@ int main(int argc, char* argv[]) {
     x2 = atoi(argv[2]);
     x3 = atoi(argv[3]);
     x4 = atoi(argv[4]);
+
+
+    if ((x1 + x2 + x3 + x4) > MAX_TABLES) {
+        fprintf(stderr, "Łączna liczba stolików nie może przekroczyć %d.\n", MAX_TABLES);
+        exit(EXIT_FAILURE);
+    }
+
+
     init_tables(x1, x2, x3, x4);
 
     printf("[KASJER] Start pizzerii: 1-os:%d, 2-os:%d, 3-os:%d, 4-os:%d (razem %d stolików)\n\n",
@@ -202,6 +229,10 @@ int main(int argc, char* argv[]) {
 
             if (msgsnd(msgid, &resp, sizeof(resp) - sizeof(long), 0) == -1) {
                 perror("[KASJER] Błąd: Nie udało się wysłać odpowiedzi za pomocą msgsnd");
+            }
+            else if(!resp.canSit){
+                printf("\n[LEADER] Grupa #%d (%d-os.) NIE otrzymała stolika.\n",
+               resp.groupId, req.groupSize);
             }
         } else {
             if (errno != ENOMSG && errno != EINTR) {

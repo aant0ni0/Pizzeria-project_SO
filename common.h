@@ -15,6 +15,8 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/select.h>
+#include <ctype.h>
+
 
 
 #define PROJECT_PATH "./"
@@ -23,6 +25,9 @@
 #define FIRE_SIGNAL SIGUSR1
 
 #define MAX_GROUP_SIZE 3
+
+#define MAX_TABLES 100
+
 
 
 // 1) Zapytanie o stolik (klient -> kasjer)
