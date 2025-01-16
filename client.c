@@ -6,7 +6,7 @@
 // Obsługa sygnału pożaru
 static void client_fire_handler(int signo) {
     if (signo == FIRE_SIGNAL) {
-        printf("[KLIENT %d] Otrzymałem sygnał pożaru -> kończę się!\n", getpid());
+        printf("[KLIENT %d] Klienci opuszczają pizzerie\n", getpid());
         exit(0);
     }
 }
@@ -90,6 +90,9 @@ void* leader_thread_func(void* arg) {
 
     if (msgsnd(msgid, &req, sizeof(req) - sizeof(long), 0) == -1) {
         perror("[LEADER] Błąd: Nie udało się wysłać zapytania za pomocą msgsnd");
+        if((errno == EAGAIN)){
+            pthread_exit(NULL);
+        }
         pthread_mutex_lock(&g->lock);
         g->canSit = false;
         g->tableSize = 0;

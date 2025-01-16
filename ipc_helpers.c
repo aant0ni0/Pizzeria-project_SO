@@ -1,6 +1,7 @@
 #include "ipc_helpers.h"
 
 
+
 int create_msg_queue(key_t key){
     int msgid = msgget(key, IPC_CREAT | 0666);
     if (msgid == -1) {
@@ -26,6 +27,7 @@ int get_msg_queue(key_t key){
     }
     return msgid;
 }
+
 
 
 
