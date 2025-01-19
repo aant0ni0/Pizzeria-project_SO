@@ -14,21 +14,17 @@
 #include <wait.h>
 #include <pthread.h>
 #include <time.h>
-#include <sys/select.h>
 #include <ctype.h>
 
-
+// Plik wspólnych definicji
 
 #define PROJECT_PATH "./"
 #define PROJECT_ID 'S'
 
 #define FIRE_SIGNAL SIGUSR1
 
-#define MAX_GROUP_SIZE 3
-
 #define MAX_TABLES 100
-
-
+#define MAX_CLIENTS 100
 
 // 1) Zapytanie o stolik (klient -> kasjer)
 struct msgbuf_request {
@@ -42,8 +38,8 @@ struct msgbuf_request {
 struct msgbuf_response {
     long mtype;       
     bool canSit;      // czy udało się posadzić
-    int tableSize;    // rozmiar stolika (1,2,3,4)
-    int tableIndex;   // który konkretnie stolik w tablicy kasjera
+    int tableSize;    // rozmiar stolika (1..4)
+    int tableIndex;   // który konkretnie stolik
     int groupId;      // ID grupy (echo z requestu)
 };
 
@@ -57,6 +53,10 @@ struct msgbuf_release {
     pid_t pidClient;
 };
 
-
+// 4) Rejestracja spawnera (mtype=10)
+struct msgbuf_spawnerReg {
+    long mtype;      // = 10
+    pid_t spawnerPid;
+};
 
 #endif
